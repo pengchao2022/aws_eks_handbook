@@ -35,3 +35,8 @@ aws eks update-kubeconfig --region <your-region> --name <your-cluster-name>
 
 kubectl get nodes
 kubectl get pods -A
+
+# use kubectl to install the latest metrics-server
+
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
