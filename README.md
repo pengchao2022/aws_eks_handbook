@@ -29,7 +29,7 @@ If you are using an ubuntu server for eks cluster management, some apps you need
 
 # update the  kubeconfig ( this is very important part)
 
-aws eks update-kubeconfig --region <your-region> --name <your-cluster-name>
+aws eks update-kubeconfig --region us-east-1 --name aws-eks-cluster
 
 # test the connection
 
@@ -39,4 +39,13 @@ kubectl get pods -A
 # use kubectl to install the latest metrics-server
 
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+1,check the metrics-server running or not 
+
+kubectl get pods -n kube-system -l k8s-app=metrics-server
+
+2,check the pod and nodes cpu and memory usage
+
+kubectl top nodes
+kubectl top pods -A
 
