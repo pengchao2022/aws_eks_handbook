@@ -19,11 +19,11 @@ If you are using an ubuntu server for eks cluster management, some apps you need
 
 5, Install Docker
 
-sudo apt-get update
-sudo apt-get install docker.io
-sudo usermod -aG docker $USER  # add the current user to docker group，then you will not use sudo everytime
-(you need logoff and login again) 
-newgrp docker # or you just run this command to function immediately
+<p>sudo apt-get update</p>
+<p>sudo apt-get install docker.io</p>
+<p>sudo usermod -aG docker $USER  # add the current user to docker group，then</p> <p>you will not use sudo everytime </p>
+<p>(you need logoff and login again) </p>
+<p>newgrp docker # or you just run this command to function immediately</p>
 
 6, aws configure command to added your aws credentials
 
