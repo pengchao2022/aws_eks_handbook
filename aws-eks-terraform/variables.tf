@@ -32,21 +32,21 @@ variable "node_instance_names" {
 }
 
 variable "desired_size" {
-  description = "Desired number of worker nodes per node group"
+  description = "Desired number of worker nodes"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "max_size" {
-  description = "Maximum number of worker nodes per node group"
+  description = "Maximum number of worker nodes"
   type        = number
-  default     = 2
+  default     = 6
 }
 
 variable "min_size" {
-  description = "Minimum number of worker nodes per node group"
+  description = "Minimum number of worker nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "instance_types" {

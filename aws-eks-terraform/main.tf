@@ -1,3 +1,157 @@
+# 查找 EKS 优化版 Ubuntu AMI
+data "aws_ami" "eks_optimized_ubuntu" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amazon-eks-node-${var.cluster_version}-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
+# EKS Cluster IAM Role
+resource "aws_iam_role" "eks_cluster_role" {
+  name = "${var.cluster_name}-cluster-role"
+
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "eks.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_cluster_role.name
+}
+
+# EKS Cluster
+resource "aws_eks_cluster" "cluster" {
+  name     = var.cluster_name
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = var.cluster_version
+
+  vpc_config {
+    subnet_ids              = var.private_subnet_ids
+    endpoint_private_access = true
+    endpoint_public_access  = true
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_policy
+  ]
+
+  tags = merge(var.tags, {
+    Name = var.cluster_name
+  })
+}
+
+# Node Group IAM Role
+resource "aws_iam_role" "eks_node_group_role" {
+  name = "${var.cluster_name}-node-group-role"
+
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_container_registry_readonly" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+# Security Group for EKS Nodes
+resource "aws_security_group" "eks_nodes" {
+  name        = "${var.cluster_name}-nodes-sg"
+  description = "Security group for EKS worker nodes"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-nodes-sg"
+  })
+}
+
+# 创建启动模板
+resource "aws_launch_template" "eks_node_launch_template" {
+  name          = "${var.cluster_name}-launch-template"
+  image_id      = data.aws_ami.eks_optimized_ubuntu.id
+  instance_type = var.instance_types[0]
+  vpc_security_group_ids = [aws_security_group.eks_nodes.id]
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 20
+      volume_type = "gp3"
+      encrypted   = true
+    }
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(var.tags, {
+      Name = "${var.cluster_name}-node"
+    })
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = merge(var.tags, {
+      Name = "${var.cluster_name}-node"
+    })
+  }
+
+  user_data = base64encode(<<-EOT
+#!/bin/bash
+set -ex
+# EKS 优化版 AMI 会自动处理节点加入集群的过程
+echo "Node ready for cluster ${var.cluster_name}"
+EOT
+  )
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # 创建单个节点组，包含多个节点
 resource "aws_eks_node_group" "ubuntu_nodes" {
   cluster_name    = aws_eks_cluster.cluster.name
@@ -11,9 +165,14 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
     min_size     = var.min_size
   }
 
-  ami_type       = "AL2_x86_64"  # 使用 Amazon Linux 2 EKS 优化版 AMI
-  instance_types = var.instance_types
+  ami_type       = "CUSTOM"
   capacity_type  = "ON_DEMAND"
+
+  # 使用启动模板
+  launch_template {
+    id      = aws_launch_template.eks_node_launch_template.id
+    version = "$Latest"
+  }
 
   # 为每个实例设置名称标签
   labels = {
@@ -32,6 +191,47 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
   })
 }
 
+# Kubernetes provider configuration
+provider "kubernetes" {
+  host                   = aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.cluster.certificate_authority[0].data)
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args = [
+      "eks",
+      "get-token",
+      "--cluster-name",
+      aws_eks_cluster.cluster.name,
+      "--region",
+      var.region
+    ]
+  }
+}
+
+# ConfigMap for AWS authentication (required for nodes to join cluster)
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode([
+      {
+        rolearn  = aws_iam_role.eks_node_group_role.arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups = [
+          "system:bootstrappers",
+          "system:nodes",
+        ]
+      }
+    ])
+  }
+
+  depends_on = [aws_eks_cluster.cluster]
+}
+
 # 使用 null_resource 为每个 EC2 实例设置具体的名称
 resource "null_resource" "tag_ec2_instances" {
   depends_on = [aws_eks_node_group.ubuntu_nodes]
@@ -44,7 +244,8 @@ resource "null_resource" "tag_ec2_instances" {
   provisioner "local-exec" {
     command = <<EOT
 #!/bin/bash
-sleep 60
+# 等待节点完全启动
+sleep 120
 
 # 获取属于EKS集群的所有实例ID
 INSTANCE_IDS=$(aws ec2 describe-instances \
