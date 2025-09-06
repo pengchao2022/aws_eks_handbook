@@ -116,9 +116,41 @@ resource "aws_launch_template" "ubuntu_eks" {
 
   # 移除对 aws_eks_cluster.main 的直接引用，避免循环依赖
   user_data = base64encode(<<-EOT
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+
+--==BOUNDARY==
+Content-Type: text/x-shellscript; charset="us-ascii"
+
 #!/bin/bash
 set -ex
-echo "EKS node initialization - bootstrap will be handled by EKS service"
+
+# 等待 EKS 集群就绪
+max_retries=30
+counter=0
+until curl -k https://${aws_eks_cluster.main.endpoint} --connect-timeout 5 || [ $counter -eq $max_retries ]
+do
+  sleep 10
+  ((counter++))
+done
+
+# 安装 EKS 所需的工具
+apt-get update
+apt-get install -y apt-transport-https curl
+
+# 下载并运行 EKS 引导脚本
+export CLUSTER_NAME=${var.cluster_name}
+export API_SERVER_URL=${aws_eks_cluster.main.endpoint}
+export B64_CLUSTER_CA=${aws_eks_cluster.main.certificate_authority[0].data}
+export CONTAINER_RUNTIME=containerd
+
+# 使用官方 EKS 引导脚本
+/etc/eks/bootstrap.sh $CLUSTER_NAME \
+  --apiserver-endpoint $API_SERVER_URL \
+  --b64-cluster-ca $B64_CLUSTER_CA \
+  --container-runtime $CONTAINER_RUNTIME
+
+--==BOUNDARY==--
 EOT
   )
 
