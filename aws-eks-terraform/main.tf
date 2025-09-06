@@ -169,15 +169,3 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
   ]
 }
 
-# 输出信息
-output "cluster_status" {
-  value = aws_eks_cluster.main.status
-}
-
-output "cluster_endpoint" {
-  value = aws_eks_cluster.main.endpoint
-}
-
-output "node_group_names" {
-  value = [for ng in aws_eks_node_group.ubuntu_nodes : ng.node_group_name]
-}
