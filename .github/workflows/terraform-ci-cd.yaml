@@ -4,13 +4,22 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:  # 手动触发功能
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '选择要执行的操作'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: production
-
     defaults:
       run:
         working-directory: ./aws-eks-terraform
@@ -33,48 +42,41 @@ jobs:
     - name: Terraform Validate
       run: terraform validate
 
-    - name: Terraform Plan
+    - name: Execute Plan (Manual Trigger)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan'
       run: terraform plan -input=false -lock=false
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    - name: Execute Apply (Manual Trigger)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
       run: terraform apply -auto-approve -input=false -lock=false
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-  terraform-destroy:  # 单独创建一个销毁任务
-    runs-on: ubuntu-latest
-    environment: production
-    if: github.event_name == 'workflow_dispatch'  # 仅在手动触发时运行
-
-    defaults:
-      run:
-        working-directory: ./aws-eks-terraform
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.8.0
-
-    - name: Terraform Init
-      run: terraform init
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-    - name: Confirm Destroy Action
-      run: echo "🚨 DESTROYING ALL TERRAFORM RESOURCES - This action cannot be undone! 🚨"
-
-    - name: Terraform Destroy
+    - name: Execute Destroy (Manual Trigger)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
       run: terraform destroy -auto-approve -input=false -lock=false
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Terraform Plan (Auto Trigger)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: terraform plan -input=false -lock=false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Terraform Apply (Auto Trigger)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: terraform apply -auto-approve -input=false -lock=false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Show Outputs
+      if: success() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+      run: terraform output
