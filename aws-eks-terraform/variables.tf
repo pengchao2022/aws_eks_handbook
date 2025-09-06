@@ -1,34 +1,41 @@
-variable "region" {
+variable "aws_region" {
   description = "AWS region"
   type        = string
+  default     = "us-west-2"
 }
 
 variable "cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "eks-development-cluster"
+  default     = "ubuntu-eks-cluster"
 }
 
 variable "cluster_version" {
-  description = "Kubernetes version for EKS cluster"
+  description = "Kubernetes version"
   type        = string
   default     = "1.28"
 }
 
 variable "vpc_id" {
-  description = "VPC ID where EKS will be deployed"
+  description = "ID of the existing VPC"
   type        = string
 }
 
 variable "private_subnet_ids" {
-  description = "List of private subnet IDs"
+  description = "List of existing private subnet IDs"
   type        = list(string)
 }
 
-variable "node_instance_names" {
-  description = "List of EC2 instance names for worker nodes"
-  type        = list(string)
-  default     = ["eks-development-1", "eks-development-2", "eks-development-3", "eks-development-4"]
+variable "ubuntu_ami_id" {
+  description = "AMI ID for Ubuntu nodes"
+  type        = string
+  default     = ""
+}
+
+variable "node_instance_type" {
+  description = "Instance type for worker nodes"
+  type        = string
+  default     = "t3.medium"
 }
 
 variable "desired_size" {
@@ -37,26 +44,14 @@ variable "desired_size" {
   default     = 4
 }
 
+variable "min_size" {
+  description = "Minimum number of worker nodes"
+  type        = number
+  default     = 4
+}
+
 variable "max_size" {
   description = "Maximum number of worker nodes"
   type        = number
   default     = 6
-}
-
-variable "min_size" {
-  description = "Minimum number of worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "instance_types" {
-  description = "EC2 instance types for worker nodes"
-  type        = list(string)
-  default     = ["t3.medium"]
-}
-
-variable "tags" {
-  description = "Additional tags for all resources"
-  type        = map(string)
-  default     = {}
 }
