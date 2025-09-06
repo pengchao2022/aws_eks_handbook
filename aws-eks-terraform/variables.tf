@@ -54,11 +54,6 @@ variable "key_name" {
   type        = string
 }
 
-variable "ubuntu_ami_id" {
-  description = "Ubuntu AMI ID for worker nodes"
-  type        = string
-}
-
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)
