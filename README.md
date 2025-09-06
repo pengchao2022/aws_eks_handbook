@@ -3,7 +3,7 @@ DevOps Tutorials
 
 written be pengchao in shanghai
 
-v1.v2.v3.v4
+v1.v2.v3.v4.v5
 
 If you are using an ubuntu server for eks cluster management, some apps you need to check and install if needed.
 
