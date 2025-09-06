@@ -4,19 +4,16 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:  # 手动触发功能
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
     environment: production
 
-    # 根据你的实际目录名称选择其中一个：
     defaults:
       run:
-        working-directory: ./aws-eks-terraform    # 如果目录名为 infra
-        # working-directory: ./terraform   # 如果目录名为 terraform
-        # working-directory: ./iac         # 如果目录名为 iac (Infrastructure as Code)
-        # working-directory: ./deploy      # 如果目录名为 deploy
+        working-directory: ./aws-eks-terraform
 
     steps:
     - name: Checkout code
@@ -45,6 +42,39 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: terraform apply -auto-approve -input=false -lock=false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  terraform-destroy:  # 单独创建一个销毁任务
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'workflow_dispatch'  # 仅在手动触发时运行
+
+    defaults:
+      run:
+        working-directory: ./aws-eks-terraform
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.8.0
+
+    - name: Terraform Init
+      run: terraform init
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Confirm Destroy Action
+      run: echo "🚨 DESTROYING ALL TERRAFORM RESOURCES - This action cannot be undone! 🚨"
+
+    - name: Terraform Destroy
+      run: terraform destroy -auto-approve -input=false -lock=false
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
