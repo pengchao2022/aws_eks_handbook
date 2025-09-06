@@ -9,6 +9,12 @@ variable "cluster_name" {
   default     = "eks-development-cluster"
 }
 
+variable "cluster_version" {
+  description = "Kubernetes version for EKS cluster"
+  type        = string
+  default     = "1.28"
+}
+
 variable "vpc_id" {
   description = "VPC ID where EKS will be deployed"
   type        = string
@@ -26,21 +32,21 @@ variable "node_instance_names" {
 }
 
 variable "desired_size" {
-  description = "Desired number of worker nodes"
+  description = "Desired number of worker nodes per node group"
   type        = number
-  default     = 4
+  default     = 1
 }
 
 variable "max_size" {
-  description = "Maximum number of worker nodes"
+  description = "Maximum number of worker nodes per node group"
   type        = number
-  default     = 6
+  default     = 2
 }
 
 variable "min_size" {
-  description = "Minimum number of worker nodes"
+  description = "Minimum number of worker nodes per node group"
   type        = number
-  default     = 4
+  default     = 1
 }
 
 variable "instance_types" {
