@@ -1,14 +1,3 @@
-# 定义变量
-variable "cluster_name" {
-  description = "EKS 集群名称"
-  type        = string
-  default     = "my-eks-cluster"
-}
-
-variable "subnet_ids" {
-  description = "子网 ID 列表"
-  type        = list(string)
-}
 
 # EKS 集群 IAM 角色
 resource "aws_iam_role" "cluster" {
