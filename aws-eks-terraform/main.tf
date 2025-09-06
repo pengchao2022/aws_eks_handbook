@@ -190,8 +190,7 @@ resource "aws_eks_node_group" "nodes" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.subnet_ids
 
-  # 指定实例类型
-  instance_types = ["t3.micro"]
+ 
 
   # 使用启动模板
   launch_template {
