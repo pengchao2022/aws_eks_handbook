@@ -7,4 +7,4 @@ desired_size = 4
 max_size = 6
 min_size = 4
 instance_types = ["t3.micro"]
-key_name = "your-ssh-key"
+

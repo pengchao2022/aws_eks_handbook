@@ -49,11 +49,6 @@ variable "instance_types" {
   default     = ["t3.medium"]
 }
 
-variable "key_name" {
-  description = "SSH key pair name for EC2 instances"
-  type        = string
-}
-
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

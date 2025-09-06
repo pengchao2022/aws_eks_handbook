@@ -121,7 +121,6 @@ resource "aws_launch_template" "ubuntu_eks_nodes" {
   name          = "${var.node_instance_names[count.index]}-template"
   image_id      = data.aws_ami.ubuntu.id  # 使用自动查找的AMI
   instance_type = var.instance_types[0]
-  key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.eks_nodes.id]
 
   block_device_mappings {
