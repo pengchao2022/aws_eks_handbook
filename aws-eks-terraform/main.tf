@@ -167,7 +167,7 @@ EOT
 
 # 创建多个节点组
 resource "aws_eks_node_group" "ubuntu_nodes" {
-  count = 8
+  count = 3
 
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "development-${count.index + 1}"
