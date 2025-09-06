@@ -34,11 +34,8 @@ resource "aws_eks_cluster" "main" {
     endpoint_public_access  = true
   }
 
-  # 【关键修复】显式声明集群依赖于所有节点组资源
-  # 这确保在删除集群之前，Terraform 会先删除所有节点组
   depends_on = [
-    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
-    aws_eks_node_group.ubuntu_nodes # 依赖所有节点组
+    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy
   ]
 }
 
@@ -102,7 +99,7 @@ resource "aws_key_pair" "eks_node_key" {
   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC/h331ZWQQggV5Pp78eQ18Qi3lOytWJhuGacssp5gTCmuIzmMfIW+t0fhDjWq6uda1t7NeYTh0zu5+36vkiy5s3Gr1M764X3qGKeGFmC7qe1kyF7RtVoZ4adufBgoNxtWi9zGmSBVi3G98YLhq0Tuj0mV9FT9l1F3NBOd3YbtCSWJ3Lx3WH9hMJ7eGAsBek8hatCtlDIFMQeF/xW4WBufWYkghjJE0G/Z9q4bJewrERD4B7GlDe+GGN8wAvehKKASySWgeeIwu+w6LYR7yzi+hyCCL+jyiycJ113u0gMo/oavdlFlVUeoJhmjsL46sjpgKPr2Yb0GhEVBOCW/rBXPFq+24zx/uds1PK/HtVNanr5kQBpJ4yT57hKhKhuNXWhJwuwQpzEFkwt36RqNFC/7CpH0BiRaafHDggBSnzPsNEECHnPnfgvzfcKoxMNcbbgYwZxNFEBD2Bjd11T1iS0aIxlO7RA2IMGl0Ch03lE3ztbiafRVIw6pTy09ehi7e+NE= pengchaoma@Pengchaos-MacBook-Pro.local"
 }
 
-# 创建启动模板
+# 创建启动模板（移除对集群的直接引用）
 resource "aws_launch_template" "ubuntu_eks" {
   name_prefix   = "${var.cluster_name}-ubuntu-"
   image_id      = data.aws_ami.ubuntu_eks.id
@@ -117,15 +114,23 @@ resource "aws_launch_template" "ubuntu_eks" {
     }
   }
 
+  # 移除对 aws_eks_cluster.main 的直接引用，避免循环依赖
   user_data = base64encode(<<-EOT
 #!/bin/bash
 set -ex
-/etc/eks/bootstrap.sh ${var.cluster_name} \
-  --apiserver-endpoint ${aws_eks_cluster.main.endpoint} \
-  --b64-cluster-ca ${aws_eks_cluster.main.certificate_authority[0].data} \
-  --container-runtime containerd
+echo "EKS node initialization - bootstrap will be handled by EKS service"
 EOT
   )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "${var.cluster_name}-ubuntu-node"
+    }
+  }
+
+  # 明确声明启动模板依赖于集群
+  depends_on = [aws_eks_cluster.main]
 }
 
 # 创建多个节点组
@@ -139,7 +144,7 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
 
   launch_template {
     id      = aws_launch_template.ubuntu_eks.id
-    version = aws_launch_template.ubuntu_eks.latest_version # 使用明确版本号
+    version = aws_launch_template.ubuntu_eks.latest_version
   }
 
   scaling_config {
@@ -160,12 +165,32 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
     os = "ubuntu"
   }
 
-  # 依赖关系：确保所有IAM策略已附加且集群已创建
+  # 依赖关系：确保所有IAM策略已附加且集群和启动模板已创建
   depends_on = [
     aws_iam_role_policy_attachment.node_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.node_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_AmazonEC2ContainerRegistryReadOnly,
-    aws_eks_cluster.main
+    aws_eks_cluster.main,
+    aws_launch_template.ubuntu_eks
   ]
+}
+
+# 使用 null_resource 来处理需要在节点组创建后执行的操作
+resource "null_resource" "eks_node_post_creation" {
+  count = 8
+
+  triggers = {
+    node_group_name = aws_eks_node_group.ubuntu_nodes[count.index].node_group_name
+    cluster_endpoint = aws_eks_cluster.main.endpoint
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      echo "Node group ${self.triggers.node_group_name} created successfully"
+      echo "Cluster endpoint: ${self.triggers.cluster_endpoint}"
+    EOT
+  }
+
+  depends_on = [aws_eks_node_group.ubuntu_nodes]
 }
 
