@@ -33,14 +33,6 @@ output "cluster_oidc_issuer_url" {
   value       = module.eks.cluster_oidc_issuer_url
 }
 
-# 正确的 kubeconfig 输出
-output "kubeconfig" {
-  description = "Kubernetes configuration file content"
-  value       = module.eks.kubeconfig_raw
-  sensitive   = true
-}
-
-# 添加一些有用的输出
 output "cluster_name" {
   description = "EKS cluster name"
   value       = module.eks.cluster_name
@@ -51,7 +43,5 @@ output "cluster_status" {
   value       = module.eks.cluster_status
 }
 
-output "node_group_status" {
-  description = "Status of the node group"
-  value       = module.eks.eks_managed_node_groups["ubuntu_nodes"].status
-}
+# 移除不存在的 kubeconfig 输出，使用以下命令手动生成 kubeconfig：
+# aws eks update-kubeconfig --region <region> --name <cluster-name>
