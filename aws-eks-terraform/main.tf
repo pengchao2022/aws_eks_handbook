@@ -171,11 +171,3 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
   ]
 }
 
-# 输出节点组名称和实例名称
-output "node_group_names" {
-  value = [for i, ng in aws_eks_node_group.ubuntu_nodes : ng.node_group_name]
-}
-
-output "instance_names" {
-  value = [for i, ng in aws_eks_node_group.ubuntu_nodes : "development-${i + 1}"]
-}
