@@ -173,7 +173,6 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
   }
 
   ami_type       = "CUSTOM"
-  instance_types = var.instance_types
   capacity_type  = "ON_DEMAND"
 
   # 使用对应的启动模板
