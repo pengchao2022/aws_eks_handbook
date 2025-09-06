@@ -259,23 +259,21 @@ echo "Found instances: $INSTANCE_IDS"
 # 为每个实例设置名称标签
 COUNT=1
 for INSTANCE_ID in $INSTANCE_IDS; do
-  if [ $COUNT -le ${length(var.node_instance_names)} ]; then
-    NODE_NAME="${var.node_instance_names[COUNT-1]}"
-    echo "Tagging instance $INSTANCE_ID with name: $NODE_NAME"
-    
-    aws ec2 create-tags \
-      --region ${var.region} \
-      --resources "$INSTANCE_ID" \
-      --tags "Key=Name,Value=$NODE_NAME"
-  else
-    DEFAULT_NAME="${var.cluster_name}-node-$COUNT"
-    echo "Tagging instance $INSTANCE_ID with default name: $DEFAULT_NAME"
-    
-    aws ec2 create-tags \
-      --region ${var.region} \
-      --resources "$INSTANCE_ID" \
-      --tags "Key=Name,Value=$DEFAULT_NAME"
-  fi
+  case $COUNT in
+    1) NODE_NAME="eks-development-1" ;;
+    2) NODE_NAME="eks-development-2" ;;
+    3) NODE_NAME="eks-development-3" ;;
+    4) NODE_NAME="eks-development-4" ;;
+    *) NODE_NAME="${var.cluster_name}-node-$COUNT" ;;
+  esac
+  
+  echo "Tagging instance $INSTANCE_ID with name: $NODE_NAME"
+  
+  aws ec2 create-tags \
+    --region ${var.region} \
+    --resources "$INSTANCE_ID" \
+    --tags "Key=Name,Value=$NODE_NAME"
+  
   COUNT=$((COUNT + 1))
 done
 EOT
