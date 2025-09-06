@@ -1,3 +1,24 @@
+# 查找最新的 Ubuntu 20.04 LTS AMI
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical 的官方所有者ID
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+}
+
 # EKS Cluster IAM Role
 resource "aws_iam_role" "eks_cluster_role" {
   name = "${var.cluster_name}-cluster-role"
@@ -98,7 +119,7 @@ resource "aws_launch_template" "ubuntu_eks_nodes" {
   count = length(var.node_instance_names)
 
   name          = "${var.node_instance_names[count.index]}-template"
-  image_id      = var.ubuntu_ami_id
+  image_id      = data.aws_ami.ubuntu.id  # 使用自动查找的AMI
   instance_type = var.instance_types[0]
   key_name      = var.key_name
   vpc_security_group_ids = [aws_security_group.eks_nodes.id]
