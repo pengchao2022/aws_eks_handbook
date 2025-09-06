@@ -149,6 +149,7 @@ resource "aws_launch_template" "ubuntu_eks_nodes" {
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
     cluster_name = var.cluster_name
     node_name    = var.node_instance_names[count.index]
+    region       = var.region
   }))
 
   lifecycle {
