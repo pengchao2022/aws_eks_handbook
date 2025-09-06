@@ -209,7 +209,7 @@ resource "aws_eks_node_group" "ubuntu_nodes" {
 
 # 使用 null_resource 来处理需要在节点组创建后执行的操作
 resource "null_resource" "eks_node_post_creation" {
-  count = 8
+  count = 3
 
   triggers = {
     node_group_name = aws_eks_node_group.ubuntu_nodes[count.index].node_group_name
